@@ -1,7 +1,19 @@
+"""
+变量单位：
+速度：Km/s
+到太阳距离：Km
+温度：eV
+温度tensor：eV
+数密度：cm-3
+
+"""
+
 using MAT
 using Plots
 using LinearAlgebra
 using Dates
+
+const AU = 149597871 # Km
 
 function loadData()
     pVars = matread("data\\psp_spi_sf00.mat")
@@ -41,3 +53,15 @@ sbList = epoch2datetime.(sbEpochList)
 vα = [αVars["alpha_vel_rtn_sun"][i,:] for i in 1:size(αVars["alpha_vel_rtn_sun"])[1]]
 vp = [modifiedVars["p_vel_rtn_sun_alphaEpoch"][i,:] for i in 1:size(modifiedVars["p_vel_rtn_sun_alphaEpoch"])[1]]
 vαp = Vαp.(vα,vp)
+
+#scatter(
+histogram2d(
+αVars["alpha_sun_dist"]/AU,
+vαp,
+xlabel="R [au]",
+ylabel="Vαp [Km/s]",
+# ms=1,
+legend=false,
+ylims=(0,200),
+)
+savefig("figure\\VαpVsR.png")
