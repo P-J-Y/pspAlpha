@@ -70,26 +70,30 @@ vα = [αVars["alpha_vel_rtn_sun"][i,:] for i in 1:size(αVars["alpha_vel_rtn_su
 vp = [modifiedVars["p_vel_rtn_sun_alphaEpoch"][i,:] for i in 1:size(modifiedVars["p_vel_rtn_sun_alphaEpoch"])[1]]
 vαp = Vαp.(vα,vp)
 
-rs,vαps = vαpVsR(αVars,vp,vαp;binNum=5)
+rs,vαps = vαpVsR(αVars,vp,vαp;binNum=8)
 
-plot(
+
+# scatter(
+histogram2d(
+αVars["alpha_sun_dist"]/AU,
+vαp,
+# xlabel="R [au]",
+# ylabel="Vαp [Km/s]",
+# ms=1,
+legend=false,
+ylims=(0,200),
+xlims=(0,0.4),
+)
+plot!(
 rs,
 vαps,
 xlabel="R [au]",
 ylabel="Vαp [Km/s]",
 legend=false,
+color=:blue,
+mark=:cross,
 )
 savefig("figure\\VαpVsR.png")
 
-#scatter(
-# histogram2d(
-# αVars["alpha_sun_dist"]/AU,
-# vαp,
-# xlabel="R [au]",
-# ylabel="Vαp [Km/s]",
-# # ms=1,
-# legend=false,
-# ylims=(0,200),
-# xlims=(0,0.4),
-# )
+
 # savefig("figure\\VαpVsR.png")
