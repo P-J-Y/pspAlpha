@@ -63,5 +63,6 @@ ylabel="Vαp [Km/s]",
 # ms=1,
 legend=false,
 ylims=(0,200),
+xlims=(0,0.4),
 )
 savefig("figure\\VαpVsR.png")
