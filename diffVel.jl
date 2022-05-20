@@ -71,10 +71,7 @@ end
 
 pVars,αVars,modifiedVars = loadData()
 # icmeList = matread("list\\PSP_ICME_list.mat")
-sbList = matread("list\\switchback_time_output.mat")
-sbEpochList = sbList["switchback_time_output"]
 αTimeLst = epoch2datetime.(αVars["alpha_epoch"])
-sbList = epoch2datetime.(sbEpochList)
 vα = [αVars["alpha_vel_rtn_sun"][i,:] for i in 1:size(αVars["alpha_vel_rtn_sun"])[1]]
 vp = [modifiedVars["p_vel_rtn_sun_alphaEpoch"][i,:] for i in 1:size(modifiedVars["p_vel_rtn_sun_alphaEpoch"])[1]]
 va = vec(modifiedVars["va_alphaEpoch"])
