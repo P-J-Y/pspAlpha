@@ -160,4 +160,17 @@ savefig("figure\\vαp2vaVsR.png")
 histogram(
 vαp2va,
 xlims=(-2,2),
+xlabel="Vαp/VA",
+ylabel="counts",
+legend=false,
 )
+savefig("figure\\hist_vαpva.png")
+
+histogram(
+va,
+#xlims=(-2,2),
+xlabel="VA Km/s",
+ylabel="counts",
+legend=false,
+)
+savefig("figure\\hist_va.png")
