@@ -1,3 +1,5 @@
+# va为什么大部分都在70附近？很不正常
+
 
 # 变量单位：
 # 速度：Km/s
@@ -6,7 +8,7 @@
 # 温度tensor：eV
 # 数密度：cm-3
 
-
+using Distributions
 using Statistics
 using MAT
 using Plots
@@ -19,7 +21,7 @@ const AU = 149597871 # Km
 function loadData()
     pVars = matread("data\\psp_spi_sf00.mat")
     αVars = matread("data\\psp_spi_sf0a.mat")
-    modifiedVars = matread("data\\psp_modified.mat")
+    modifiedVars = matread("data\\psp_modified_alpha.mat")
     pVars,αVars,modifiedVars
 end
 
@@ -48,7 +50,7 @@ end
 """
 Vαp VS R
 """
-function vαpVsR(αVars::Dict,vp::Vector,vαp::Vector;binNum=5,maxR=0.4)
+function vαpVsR(αVars::Dict,vp::Vector,vαp::Vector;binNum=5,maxR=0.35)
     R = vec(αVars["alpha_sun_dist"]/AU)
     binEdges = collect(range(minimum(R),maxR;length=(binNum+1)))
     Rs = zeros(binNum)
@@ -68,13 +70,18 @@ sbEpochList = sbList["switchback_time_output"]
 sbList = epoch2datetime.(sbEpochList)
 vα = [αVars["alpha_vel_rtn_sun"][i,:] for i in 1:size(αVars["alpha_vel_rtn_sun"])[1]]
 vp = [modifiedVars["p_vel_rtn_sun_alphaEpoch"][i,:] for i in 1:size(modifiedVars["p_vel_rtn_sun_alphaEpoch"])[1]]
+va = vec(modifiedVars["va_alphaEpoch"])
 vαp = Vαp.(vα,vp)
+vαp2va = vαp./va
 
-rs,vαps = vαpVsR(αVars,vp,vαp;binNum=8)
+rs,vαps = vαpVsR(αVars,vp,vαp;binNum=5)
+~,vas = vαpVsR(αVars,vp,va;binNum=5)
+~,vαp2vas = vαpVsR(αVars,vp,vαp2va;binNum=5)
 
 
+figRlims = (0.05,0.35)
 # scatter(
-histogram2d(
+p1 = histogram2d(
 αVars["alpha_sun_dist"]/AU,
 vαp,
 # xlabel="R [au]",
@@ -82,18 +89,75 @@ vαp,
 # ms=1,
 legend=false,
 ylims=(0,200),
-xlims=(0,0.4),
+xlims=figRlims,
 )
 plot!(
+p1,
 rs,
 vαps,
-xlabel="R [au]",
+# xlabel="R [au]",
 ylabel="Vαp [Km/s]",
 legend=false,
-color=:blue,
+color=:red,
 mark=:cross,
 )
-savefig("figure\\VαpVsR.png")
+p2 = histogram2d(
+αVars["alpha_sun_dist"]/AU,
+va,
+xlabel="R [au]",
+ylabel="VA [Km/s]",
+# ms=1,
+legend=false,
+ylims=(0,200),
+xlims=figRlims,
+)
+plot!(
+p2,
+rs,
+vas,
+# xlabel="R [au]",
+# ylabel="Vαp [Km/s]",
+legend=false,
+color=:red,
+mark=:cross,
+)
+plot(p1,p2,layout=@layout grid(2,1))
+savefig("figure\\VαpandVaVsR.png")
 
+p3 = histogram2d(
+αVars["alpha_sun_dist"]/AU,
+vαp2va,
+xlabel="R [au]",
+ylabel="Vαp/VA",
+# ms=1,
+legend=false,
+)
+plot!(
+p3,
+rs,
+vαp2vas,
+# xlabel="R [au]",
+# ylabel="Vαp [Km/s]",
+# legend=false,
+label="avg Vαp/VA",
+color=:red,
+mark=:cross,
+ylims=(-5.5,5.5),
+xlims=figRlims,
+)
+plot!(
+p3,
+[0.,0.4],
+[1,1],
+legend=:topright,
+color=:yellow,
+label="Vαp=VA",
+ls=:dash,
+)
+savefig("figure\\vαp2vaVsR.png")
 
 # savefig("figure\\VαpVsR.png")
+histogram(
+vαp2va,
+xlims=(-2,2),
+)
