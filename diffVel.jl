@@ -62,6 +62,13 @@ function vαpVsR(αVars::Dict,vp::Vector,vαp::Vector;binNum=5,maxR=0.35)
     Rs,vαps
 end
 
+"""
+angle between 2 vectors
+"""
+function spanAngle(v1::Vector,v2::Vector)
+    acos(dot(v1,v2)/(norm(v1)*norm(v2)))
+end
+
 pVars,αVars,modifiedVars = loadData()
 # icmeList = matread("list\\PSP_ICME_list.mat")
 sbList = matread("list\\switchback_time_output.mat")
@@ -71,19 +78,44 @@ sbList = epoch2datetime.(sbEpochList)
 vα = [αVars["alpha_vel_rtn_sun"][i,:] for i in 1:size(αVars["alpha_vel_rtn_sun"])[1]]
 vp = [modifiedVars["p_vel_rtn_sun_alphaEpoch"][i,:] for i in 1:size(modifiedVars["p_vel_rtn_sun_alphaEpoch"])[1]]
 va = vec(modifiedVars["va_alphaEpoch"])
+va_rtn = [modifiedVars["va_rtn_alphaEpoch"][i,:] for i in 1:size(modifiedVars["va_rtn_alphaEpoch"])[1]]
+vαp_rtn = vecVαp.(vα,vp)
 vαp = Vαp.(vα,vp)
 vαp2va = vαp./va
 
-rs,vαps = vαpVsR(αVars,vp,vαp;binNum=5)
+rs,absVαps = vαpVsR(αVars,vp,abs.(vαp);binNum=5)
 ~,vas = vαpVsR(αVars,vp,va;binNum=5)
 ~,vαp2vas = vαpVsR(αVars,vp,vαp2va;binNum=5)
 
+saVαpVa = spanAngle.(vαp_rtn,va_rtn)
+
+histogram(
+saVαpVa*180/π,
+legend=false,
+xlabel="θ(Vαp,VA) °",
+ylabel="counts",
+)
+savefig("figure\\hist_thetaDiffVA.png")
+
+figRlims = (0.05,0.35)
+histogram2d(
+αVars["alpha_sun_dist"]/AU,
+saVαpVa*180/π,
+xlabel="R [au]",
+ylabel="θ(Vαp,VA) °",
+xlims=figRlims,
+legend=false,
+colorbar=true,
+# colormap=:jet,
+colorrange=(2000,20000),
+)
+savefig("figure\\thetaDiffVAVsR.png")
 
 figRlims = (0.05,0.35)
 # scatter(
 p1 = histogram2d(
 αVars["alpha_sun_dist"]/AU,
-vαp,
+abs.(vαp),
 # xlabel="R [au]",
 # ylabel="Vαp [Km/s]",
 # ms=1,
@@ -94,9 +126,9 @@ xlims=figRlims,
 plot!(
 p1,
 rs,
-vαps,
+absVαps,
 # xlabel="R [au]",
-ylabel="Vαp [Km/s]",
+ylabel="|Vαp| [Km/s]",
 legend=false,
 color=:red,
 mark=:cross,
@@ -122,7 +154,7 @@ color=:red,
 mark=:cross,
 )
 plot(p1,p2,layout=@layout grid(2,1))
-savefig("figure\\VαpandVaVsR.png")
+savefig("figure\\absVαpandVaVsR.png")
 
 p3 = histogram2d(
 αVars["alpha_sun_dist"]/AU,
