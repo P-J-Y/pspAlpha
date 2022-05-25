@@ -22,7 +22,8 @@ function loadData()
     pVars = matread("data\\psp_spi_sf00.mat")
     αVars = matread("data\\psp_spi_sf0a.mat")
     modifiedVars = matread("data\\psp_modified_alpha.mat")
-    pVars,αVars,modifiedVars
+    modifiedVars_va = matread("data\\psp_modified_va.mat")
+    pVars,αVars,modifiedVars,modifiedVars_va
 end
 
 """
@@ -69,7 +70,7 @@ function spanAngle(v1::Vector,v2::Vector)
     acos(dot(v1,v2)/(norm(v1)*norm(v2)))
 end
 
-pVars,αVars,modifiedVars = loadData()
+pVars,αVars,modifiedVars,modifiedVars_va = loadData()
 # icmeList = matread("list\\PSP_ICME_list.mat")
 αTimeLst = epoch2datetime.(αVars["alpha_epoch"])
 vα = [αVars["alpha_vel_rtn_sun"][i,:] for i in 1:size(αVars["alpha_vel_rtn_sun"])[1]]
@@ -80,7 +81,8 @@ vαp_rtn = vecVαp.(vα,vp)
 vαp = Vαp.(vα,vp)
 vαp2va = vαp./va
 
-rs,absVαps = vαpVsR(αVars,vp,abs.(vαp);binNum=5)
+# rs,absVαps = vαpVsR(αVars,vp,abs.(vαp);binNum=5)
+rs,Vαps = vαpVsR(αVars,vp,vαp;binNum=5)
 ~,vas = vαpVsR(αVars,vp,va;binNum=5)
 ~,vαp2vas = vαpVsR(αVars,vp,vαp2va;binNum=5)
 
@@ -103,7 +105,7 @@ ylabel="θ(Vαp,VA) °",
 xlims=figRlims,
 legend=false,
 colorbar=true,
-# colormap=:jet,
+color=:rainbow,
 colorrange=(2000,20000),
 )
 savefig("figure\\thetaDiffVAVsR.png")
@@ -112,20 +114,22 @@ figRlims = (0.05,0.35)
 # scatter(
 p1 = histogram2d(
 αVars["alpha_sun_dist"]/AU,
-abs.(vαp),
+#abs.(vαp),
+vαp,
 # xlabel="R [au]",
 # ylabel="Vαp [Km/s]",
 # ms=1,
 legend=false,
 ylims=(0,200),
 xlims=figRlims,
+color=:rainbow,
 )
 plot!(
 p1,
 rs,
-absVαps,
+Vαps,
 # xlabel="R [au]",
-ylabel="|Vαp| [Km/s]",
+ylabel="Vαp [Km/s]",
 legend=false,
 color=:red,
 mark=:cross,
@@ -139,6 +143,7 @@ ylabel="VA [Km/s]",
 legend=false,
 ylims=(0,200),
 xlims=figRlims,
+color=:rainbow,
 )
 plot!(
 p2,
@@ -151,7 +156,8 @@ color=:red,
 mark=:cross,
 )
 plot(p1,p2,layout=@layout grid(2,1))
-savefig("figure\\absVαpandVaVsR.png")
+# savefig("figure\\absVαpandVaVsR.png")
+savefig("figure\\VαpandVaVsR.png")
 
 p3 = histogram2d(
 αVars["alpha_sun_dist"]/AU,
@@ -160,6 +166,7 @@ xlabel="R [au]",
 ylabel="Vαp/VA",
 # ms=1,
 legend=false,
+# color=:rainbow,
 )
 plot!(
 p3,
@@ -203,3 +210,39 @@ ylabel="counts",
 legend=false,
 )
 savefig("figure\\hist_va.png")
+
+p1 = scatter(
+αTimeLst,
+va,
+ms=1,
+xlims=(αTimeLst[1],αTimeLst[end]),
+legend=false,
+)
+p2 = scatter(
+αTimeLst,
+modifiedVars["va_rtn_alphaEpoch"][:,1],
+ms=1,
+xlims=(αTimeLst[1],αTimeLst[end]),
+legend=false,
+)
+scatter!(
+p2,
+αTimeLst,
+modifiedVars["va_rtn_alphaEpoch"][:,2],
+ms=1,
+)
+scatter!(
+p2,
+αTimeLst,
+modifiedVars["va_rtn_alphaEpoch"][:,3],
+ms=1,
+)
+p3 = scatter(
+epoch2datetime.(modifiedVars_va["vaEpoch"]),
+modifiedVars_va["va_vaEpoch"],
+xlims=(αTimeLst[1],αTimeLst[end]),
+ms=1,
+legend=false,
+)
+plot(p1,p2,p3,layout=@layout [a;b;c])
+savefig("figure\\timeplot.png")
