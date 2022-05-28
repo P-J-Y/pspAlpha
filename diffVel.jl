@@ -121,87 +121,87 @@ saVαpVa = spanAngle.(vαp_rtn,va_rtn)
 # )
 # savefig("figure\\thetaDiffVAVsR.png")
 
-figRlims = (0.05,0.35)
-# scatter(
-p1 = histogram2d(
-αVars["alpha_sun_dist"]/AU,
-#abs.(vαp),
-vαp,
-# xlabel="R [au]",
-# ylabel="Vαp [Km/s]",
-# ms=1,
-legend=false,
-ylims=(0,200),
-xlims=figRlims,
-color=:rainbow,
-)
-plot!(
-p1,
-rs,
-Vαps,
-# xlabel="R [au]",
-ylabel="Vαp [Km/s]",
-legend=false,
-color=:red,
-mark=:cross,
-)
-p2 = histogram2d(
-αVars["alpha_sun_dist"]/AU,
-va,
-xlabel="R [au]",
-ylabel="VA [Km/s]",
-# ms=1,
-legend=false,
-ylims=(0,200),
-xlims=figRlims,
-color=:rainbow,
-)
-plot!(
-p2,
-rs,
-vas,
-# xlabel="R [au]",
-# ylabel="Vαp [Km/s]",
-legend=false,
-color=:red,
-mark=:cross,
-)
-plot(p1,p2,layout=@layout grid(2,1))
-# savefig("figure\\absVαpandVaVsR.png")
-savefig("figure\\VαpandVaVsR.png")
-
-p3 = histogram2d(
-αVars["alpha_sun_dist"]/AU,
-vαp2va,
-xlabel="R [au]",
-ylabel="Vαp/VA",
-# ms=1,
-legend=false,
+# figRlims = (0.05,0.35)
+# # scatter(
+# p1 = histogram2d(
+# αVars["alpha_sun_dist"]/AU,
+# #abs.(vαp),
+# vαp,
+# # xlabel="R [au]",
+# # ylabel="Vαp [Km/s]",
+# # ms=1,
+# legend=false,
+# ylims=(0,200),
+# xlims=figRlims,
 # color=:rainbow,
-)
-plot!(
-p3,
-rs,
-vαp2vas,
-# xlabel="R [au]",
+# )
+# plot!(
+# p1,
+# rs,
+# Vαps,
+# # xlabel="R [au]",
 # ylabel="Vαp [Km/s]",
 # legend=false,
-label="avg Vαp/VA",
-color=:red,
-mark=:cross,
-ylims=(-5.5,5.5),
-xlims=figRlims,
-)
-plot!(
-p3,
-[0.,0.4],
-[1,1],
-legend=:topright,
-color=:yellow,
-label="Vαp=VA",
-ls=:dash,
-)
-savefig("figure\\vαp2vaVsR.png")
+# color=:red,
+# mark=:cross,
+# )
+# p2 = histogram2d(
+# αVars["alpha_sun_dist"]/AU,
+# va,
+# xlabel="R [au]",
+# ylabel="VA [Km/s]",
+# # ms=1,
+# legend=false,
+# ylims=(0,200),
+# xlims=figRlims,
+# color=:rainbow,
+# )
+# plot!(
+# p2,
+# rs,
+# vas,
+# # xlabel="R [au]",
+# # ylabel="Vαp [Km/s]",
+# legend=false,
+# color=:red,
+# mark=:cross,
+# )
+# plot(p1,p2,layout=@layout grid(2,1))
+# # savefig("figure\\absVαpandVaVsR.png")
+# savefig("figure\\VαpandVaVsR.png")
+#
+# p3 = histogram2d(
+# αVars["alpha_sun_dist"]/AU,
+# vαp2va,
+# xlabel="R [au]",
+# ylabel="Vαp/VA",
+# # ms=1,
+# legend=false,
+# # color=:rainbow,
+# )
+# plot!(
+# p3,
+# rs,
+# vαp2vas,
+# # xlabel="R [au]",
+# # ylabel="Vαp [Km/s]",
+# # legend=false,
+# label="avg Vαp/VA",
+# color=:red,
+# mark=:cross,
+# ylims=(-5.5,5.5),
+# xlims=figRlims,
+# )
+# plot!(
+# p3,
+# [0.,0.4],
+# [1,1],
+# legend=:topright,
+# color=:yellow,
+# label="Vαp=VA",
+# ls=:dash,
+# )
+# savefig("figure\\vαp2vaVsR.png")
 
 # # savefig("figure\\VαpVsR.png")
 # histogram(
@@ -222,38 +222,41 @@ savefig("figure\\vαp2vaVsR.png")
 # )
 # savefig("figure\\hist_va.png")
 #
-# p1 = scatter(
-# αTimeLst,
-# va,
-# ms=1,
-# xlims=(αTimeLst[1],αTimeLst[end]),
-# legend=false,
-# )
-# p2 = scatter(
-# αTimeLst,
-# modifiedVars["va_rtn_alphaEpoch"][:,1],
-# ms=1,
-# xlims=(αTimeLst[1],αTimeLst[end]),
-# legend=false,
-# )
-# scatter!(
-# p2,
-# αTimeLst,
-# modifiedVars["va_rtn_alphaEpoch"][:,2],
-# ms=1,
-# )
-# scatter!(
-# p2,
-# αTimeLst,
-# modifiedVars["va_rtn_alphaEpoch"][:,3],
-# ms=1,
-# )
-# p3 = scatter(
-# epoch2datetime.(modifiedVars_va["vaEpoch"]),
-# modifiedVars_va["va_vaEpoch"],
-# xlims=(αTimeLst[1],αTimeLst[end]),
-# ms=1,
-# legend=false,
-# )
-# plot(p1,p2,p3,layout=@layout [a;b;c])
-# savefig("figure\\timeplot.png")
+p1 = scatter(
+αTimeLst,
+va,
+ms=1,
+xlims=(αTimeLst[1],αTimeLst[end]),
+legend=false,
+ylabel = "VA Km/s"
+)
+p2 = scatter(
+αTimeLst,
+modifiedVars["va_rtn_alphaEpoch"][:,1],
+ms=1,
+xlims=(αTimeLst[1],αTimeLst[end]),
+legend=false,
+)
+scatter!(
+p2,
+αTimeLst,
+modifiedVars["va_rtn_alphaEpoch"][:,2],
+ms=1,
+)
+scatter!(
+p2,
+αTimeLst,
+modifiedVars["va_rtn_alphaEpoch"][:,3],
+ms=1,
+ylabel = "VA Km/s"
+)
+p3 = scatter(
+epoch2datetime.(modifiedVars_va["vaEpoch"]),
+modifiedVars_va["va_vaEpoch"],
+xlims=(αTimeLst[1],αTimeLst[end]),
+ms=1,
+legend=false,
+ylabel = "VA Km/s",
+)
+plot(p1,p2,p3,layout=@layout [a;b;c])
+savefig("figure\\timeplot.png")
