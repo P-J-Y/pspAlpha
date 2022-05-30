@@ -5,6 +5,8 @@ using Plots
 using LinearAlgebra
 using Statistics
 using Optim
+using Interpolations
+using CurveFit
 
 # 原始磁场数据，每个文件对应的时间
 # magFileTime = Dict(
@@ -55,10 +57,11 @@ function circleShape(p::Vector)
 end
 
 function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
-    figName="test",plotTimeSeries=false)
+    figName="test",plotTimeSeries=false,deltaMins=10)
     output = Dict(
     "αdataFlag"=>1,
     )
+    #############
     pPoints = vec((pVars["p_epoch"].>=epoch1) .& (pVars["p_epoch"].<=epoch2))
     pEpoch = pVars["p_epoch"][pPoints]
     pTime = epoch2datetime.(pEpoch)
@@ -132,7 +135,38 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     dims=2)))
     @show αMaxIdx
     makerSize = 3
-    scatter(
+
+    sign2sign = Dict(1=>"+",-1=>"-")
+    avg_B = mean(sqrt.(sum(abs2,mag_rtn,dims=2)))
+    mag1_interp_linear = LinearInterpolation(magEpoch, mag2P[:,1]/avg_B)
+    mag1_pTime = mag1_interp_linear.(pEpoch)
+    ccpb = cor(mag1_pTime, pVel2P[:,1])
+    coefspb = linear_fit(mag1_pTime,pVel2P[:,1])# pVel1 = c + Vw*mag1_pTime
+    plot_velVsB = scatter(
+    mag1_pTime,
+    pVel2P[:,1],
+    label=:none,
+    xlabel = "B1/|B|",
+    ylabel = "Vp1 Km/s",
+    title = "Vp1 = $(round(coefspb[1],digits=3))"*
+    sign2sign[sign(coefspb[2])]*
+    "$(round(abs(coefspb[2]),digits=3))*B1/|B|",
+    )
+    pb_func(x) = coefspb[1]+coefspb[2]*x
+    plot!(
+    plot_velVsB,
+    pb_func,
+    ls = :dot,
+    color = :red,
+    label = "cc="*string(round(ccpb,digits=3)),
+    )
+
+    savefig(plot_velVsB,"figure\\velVsB\\p_"*figName*".png")
+
+
+
+
+    plot_vel = scatter(
     pVel2P[:,1],
     pVel2P[:,2],
     xlabel = "V1 Km/s",
@@ -142,35 +176,42 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     ms = makerSize,
     )
     scatter!(
+    plot_vel,
     [pVel2P[1,1],],
     [pVel2P[1,2],],
-    color = :yellow,
-    markershape = :circle,
+    color = :blue,
+    markershape = :square,
     ms = makerSize+2,
-    legend=false,
+    label=:none,
     )
     scatter!(
+    plot_vel,
     [pVel2P[pMaxIdx,1],],
     [pVel2P[pMaxIdx,2],],
-    color = :yellow,
+    color = :blue,
     markershape = :utriangle,
     ms = makerSize+2,
-    legend=false,
+    label=:none,
     )
     scatter!(
+    plot_vel,
     [p_p[1],],
     [p_p[2],],
     color = :blue,
     markershape = :x,
     ms = makerSize+2,
+    label=:none,
     )
     plot!(
+    plot_vel,
     circleShape(p_p),
     lw= 0.5,
     linecolor = :blue,
     linealpha = 0.5,
+    label=:none,
     )
     scatter!(
+    plot_vel,
     αVel2P[:,1],
     αVel2P[:,2],
     label = "Vα",
@@ -178,38 +219,45 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     ms = makerSize,
     )
     scatter!(
+    plot_vel,
     [αVel2P[1,1],],
     [αVel2P[1,2],],
-    color = :yellow,
-    markershape = :circle,
+    color = :red,
+    markershape = :square,
     ms = makerSize+2,
-    legend=false,
+    label=:none,
     )
     scatter!(
+    plot_vel,
     [αVel2P[αMaxIdx,1],],
     [αVel2P[αMaxIdx,2],],
-    color = :yellow,
+    color = :red,
     markershape = :utriangle,
-    legend=false,
+    label=:none,
     ms = makerSize+2,
     aspect_ratio = :equal,
     )
     scatter!(
+    plot_vel,
     [p_α[1],],
     [p_α[2],],
     color = :red,
     markershape = :x,
     ms = makerSize+2,
+    label=:none,
     )
     plot!(
+    plot_vel,
     circleShape(p_α),
     lw= 0.5,
     linecolor = :red,
     linealpha = 0.5,
+    label=:none,
     )
-    savefig("figure\\sbvel2P\\"*figName*".png")
-
-    scatter(
+    # savefig("figure\\sbvel2P\\"*figName*".png")
+    #################
+    #
+    plot_mag = scatter(
     mag2P[:,1],
     mag2P[:,2],
     xlabel = "B1 nT",
@@ -220,6 +268,7 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     aspect_ratio = :equal,
     )
     scatter!(
+    plot_mag,
     [p_mag[1],],
     [p_mag[2],],
     color = :blue,
@@ -227,12 +276,21 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     ms = makerSize+2,
     )
     plot!(
+    plot_mag,
     circleShape(p_mag),
     lw= 0.5,
     linecolor = :black,
     linealpha = 0.5,
     )
-    savefig("figure\\B2P\\"*figName*".png")
+    plot2PL = @layout grid(1,2)
+    plot(
+    plot_vel,
+    plot_mag,
+    layout=plot2PL,
+    size=(800,450),
+    )
+    savefig("figure\\VelandB2P\\"*figName*".png")
+    # savefig("figure\\B2P\\"*figName*".png")
     # F.U 给出svd分解得到的特征向量
     # F.S 给出svd分解得到的特征值，降序排列
     #@show F.U
@@ -264,13 +322,39 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     # savefig("figure\\sbvel\\"*figName*".png")
 
     # 画出时间序列
+    # deltaEpoch = deltaMins/(24*60)
+    # epoch1_sb = copy(epoch1)
+    # epoch2_sb = copy(epoch2)
+    # epoch1 -= deltaEpoch
+    # epoch2 += deltaEpoch
+    # pPoints = vec((pVars["p_epoch"].>=epoch1) .& (pVars["p_epoch"].<=epoch2))
+    # pEpoch = pVars["p_epoch"][pPoints]
+    # pTime = epoch2datetime.(pEpoch)
+    # pVel = pVars["p_vel_rtn_sun"][pPoints,:]
+    # pTemp = pVars["p_temp"][pPoints]
+    # αPoints =  vec((αVars["alpha_epoch"].>=epoch1) .&
+    #             (αVars["alpha_epoch"].<=epoch2))
+    # αEpoch = αVars["alpha_epoch"][αPoints]
+    # αTime = epoch2datetime.(αEpoch)
+    # αVel = αVars["alpha_vel_rtn_sun"][αPoints,:]
+    # αTemp = αVars["alpha_temp"][αPoints]
+    # va = modifiedVars["va_alphaEpoch"][αPoints]
+    # va_rtn = modifiedVars["va_rtn_alphaEpoch"][αPoints,:]
+    # magPoints = vec((magVars["mag_epoch"].>=epoch1) .&
+    #             (magVars["mag_epoch"].<=epoch2))
+    # magEpoch = magVars["mag_epoch"][magPoints]
+    # magTime = epoch2datetime.(magEpoch)
+    # mag_rtn = magVars["mag_rtn"][magPoints,:]
+    # theta = atan.(mag_rtn[:,2]./mag_rtn[:,1])
     # if plotTimeSeries
+    #     ts = []
     #     p1 = plot(
     #     pTime,
     #     pVel,
     #     label = ["r" "t" "n"],
     #     ylabel = "Vp Km/s",
     #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    #     xticks = nothing,
     #     )
     #     p2 = plot(
     #     pTime,
@@ -278,6 +362,7 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     #     legend=false,
     #     ylabel = "Tp eV",
     #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    #     xticks = nothing,
     #     )
     #     p3 = plot(
     #     αTime,
@@ -285,6 +370,7 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     #     label = ["r" "t" "n"],
     #     ylabel = "Vα Km/s",
     #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    #     xticks = nothing,
     #     )
     #     p4 = plot(
     #     αTime,
@@ -292,12 +378,14 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     #     legend=false,
     #     ylabel = "Tα eV",
     #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    #     xticks = nothing,
     #     )
     #     p5 = plot(
     #     αTime,
     #     va_rtn,
     #     label = ["r" "t" "n"],
     #     ylabel = "VA Km/s",
+    #     xticks = nothing,
     #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
     #     )
     #     p6 = plot(
@@ -306,8 +394,36 @@ function sbEvent(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     #     label = ["r" "t" "n"],
     #     ylabel = "B nT",
     #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    #     xticks = nothing,
     #     )
-    #     plot(p1,p2,p3,p4,p5,p6,layout=@layout grid(6,1))
+    #     p7 = plot(
+    #     magTime,
+    #     theta*180/π,
+    #     legend = false,
+    #     ylabel = "θ °",
+    #     ylims = (-90,90),
+    #     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    #     )
+    #     plot!(
+    #     p7,
+    #     [epoch2datetime(epoch1_sb),epoch2datetime(epoch1_sb)],
+    #     [-90,90],
+    #     ls = :dot,
+    #     lw = 2,
+    #     color = :black,
+    #     )
+    #     plot!(
+    #     p7,
+    #     [epoch2datetime(epoch2_sb),epoch2datetime(epoch2_sb)],
+    #     [-90,90],
+    #     ls = :dot,
+    #     lw = 2,
+    #     color = :black,
+    #     )
+    #     push!(ts,p1,p2,p3,p4,p5,p6,p7)
+    #     tsL = @layout grid(7,1)
+    #     plot(ts...,layout=tsL,size=(900,1050))
+    #     #size=(900,600),
     #     savefig("figure\\sbs\\"*figName*".png")
     # end
     output
@@ -349,7 +465,7 @@ sbidx = 187
 magVars = matread("data\\psp_fld_mag_rtn_2020b.mat")
 tend = DateTime(2021,9,1)
 while sbEpochList[sbidx,2]<magVars["mag_epoch"][end]
-# while sbidx<189
+# while sbidx<199
     println("sbidx=",sbidx)
     output = sbEvent(
     sbEpochList[sbidx,1],
