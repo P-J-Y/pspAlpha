@@ -26,6 +26,10 @@ function loadData()
     pVars,αVars,modifiedVars,modifiedVars_va
 end
 
+function loadList()
+    sbList = matread("list//switchback_time_output.mat")
+end
+
 """
 计算p和α之间的速度差标量（α速度高为正）
 """
