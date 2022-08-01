@@ -1,4 +1,3 @@
-# va为什么大部分都在70附近？很不正常
 
 
 # 变量单位：
@@ -112,6 +111,7 @@ saVαpVa = spanAngle.(vαp_rtn,va_rtn)
 # savefig("figure\\hist_thetaDiffVA.png")
 #
 # figRlims = (0.05,0.35)
+# colorz = 10 .^ (1:0.1:4)
 # histogram2d(
 # αVars["alpha_sun_dist"]/AU,
 # saVαpVa*180/π,
@@ -120,10 +120,17 @@ saVαpVa = spanAngle.(vαp_rtn,va_rtn)
 # xlims=figRlims,
 # legend=false,
 # colorbar=true,
-# color=:rainbow,
-# colorrange=(2000,20000),
+# # color=:rainbow,
+# color=cgrad(:jet,colorz,scale=:log10),
+# zscale=:log10,
+# # colorrange=(2000,20000),
 # )
-# savefig("figure\\thetaDiffVAVsR.png")
+# savefig("figure\\thetaDiffVAVsR_log10.png")
+# file = matopen("data\\output\\thetaDiffVAVsR.mat", "w")
+# write(file, "alpha_sun_dist", αVars["alpha_sun_dist"]/AU)
+# write(file, "saVapVa", saVαpVa*180/π)
+# close(file)
+
 
 # figRlims = (0.05,0.35)
 # # scatter(
@@ -226,41 +233,41 @@ saVαpVa = spanAngle.(vαp_rtn,va_rtn)
 # )
 # savefig("figure\\hist_va.png")
 #
-p1 = scatter(
-αTimeLst,
-va,
-ms=1,
-xlims=(αTimeLst[1],αTimeLst[end]),
-legend=false,
-ylabel = "VA Km/s"
-)
-p2 = scatter(
-αTimeLst,
-modifiedVars["va_rtn_alphaEpoch"][:,1],
-ms=1,
-xlims=(αTimeLst[1],αTimeLst[end]),
-legend=false,
-)
-scatter!(
-p2,
-αTimeLst,
-modifiedVars["va_rtn_alphaEpoch"][:,2],
-ms=1,
-)
-scatter!(
-p2,
-αTimeLst,
-modifiedVars["va_rtn_alphaEpoch"][:,3],
-ms=1,
-ylabel = "VA Km/s"
-)
-p3 = scatter(
-epoch2datetime.(modifiedVars_va["vaEpoch"]),
-modifiedVars_va["va_vaEpoch"],
-xlims=(αTimeLst[1],αTimeLst[end]),
-ms=1,
-legend=false,
-ylabel = "VA Km/s",
-)
-plot(p1,p2,p3,layout=@layout [a;b;c])
-savefig("figure\\timeplot.png")
+# p1 = scatter(
+# αTimeLst,
+# va,
+# ms=1,
+# xlims=(αTimeLst[1],αTimeLst[end]),
+# legend=false,
+# ylabel = "VA Km/s"
+# )
+# p2 = scatter(
+# αTimeLst,
+# modifiedVars["va_rtn_alphaEpoch"][:,1],
+# ms=1,
+# xlims=(αTimeLst[1],αTimeLst[end]),
+# legend=false,
+# )
+# scatter!(
+# p2,
+# αTimeLst,
+# modifiedVars["va_rtn_alphaEpoch"][:,2],
+# ms=1,
+# )
+# scatter!(
+# p2,
+# αTimeLst,
+# modifiedVars["va_rtn_alphaEpoch"][:,3],
+# ms=1,
+# ylabel = "VA Km/s"
+# )
+# p3 = scatter(
+# epoch2datetime.(modifiedVars_va["vaEpoch"]),
+# modifiedVars_va["va_vaEpoch"],
+# xlims=(αTimeLst[1],αTimeLst[end]),
+# ms=1,
+# legend=false,
+# ylabel = "VA Km/s",
+# )
+# plot(p1,p2,p3,layout=@layout [a;b;c])
+# savefig("figure\\timeplot.png")

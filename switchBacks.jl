@@ -1679,28 +1679,31 @@ function sbEvent_calVectors(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     pEpoch = pEpoch[nonNaNpoints]
     pTime = pTime[nonNaNpoints]
     pVel = pVel[nonNaNpoints,:]
+    vp_scaled = pVel.-mean(pVel,dims=1)
     pTemp = pTemp[nonNaNpoints]
     nonNaNpoints = vec(any(isnan.(αVel),dims=2) .!= 1)
     αEpoch = αEpoch[nonNaNpoints]
     αTime = αTime[nonNaNpoints]
     αVel = αVel[nonNaNpoints,:]
+    vα_scaled = αVel .- mean(αVel,dims=1)
     αTemp = αTemp[nonNaNpoints]
     pVel2αEpoch = pVel2αEpoch[nonNaNpoints,:]
     va = va[nonNaNpoints]
+    va0 = mean(va)
     va_rtn = va_rtn[nonNaNpoints,:]
 
     ### 计算这段时间的磁场最小扰动方向（MVA）
     mag_rtn_scaled = mag_rtn .- mean(mag_rtn,dims=1)
-    Σb = (mag_rtn_scaled'*mag_rtn_scaled) / length(magEpoch)
+    # Σb = (mag_rtn_scaled'*mag_rtn_scaled) / length(magEpoch)
     # @show Σb
-    F = svd(Σb)
-    v1 = F.U[:,1]
-    v2 = F.U[:,2]
-    v3 = F.U[:,3]
-    e_δb = v1
+    # F = svd(Σb)
+    # v1 = F.U[:,1]
+    # v2 = F.U[:,2]
+    # v3 = F.U[:,3]
+    # e_δb = v1
     B0 = vec(mean(mag_rtn,dims=1))
     e_r = [1,0,0]
-    output["e_δb"] = e_δb
+    # output["e_δb"] = e_δb
     output["B0"] = B0
     ### 计算这段时间的漂移速度最小扰动方向（MVA）
     vαp_rtn = αVel .- pVel2αEpoch
@@ -1711,20 +1714,35 @@ function sbEvent_calVectors(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
         return output
     end
     # @show Σαp
-    Fαp = svd(Σαp)
-    v1αp = Fαp.U[:,1]
-    v2αp = Fαp.U[:,2]
-    v3αp = Fαp.U[:,3]
-    e_δαp = v1αp
-    vαp0 = vec(mean(vαp_rtn,dims=1))
-    δαp2vαp = sum(abs2,vαp_rtn_scaled) / (length(αEpoch) * sum(abs2,vαp0))
-    output["e_δαp"] = e_δαp
-    output["vαp0"] = vαp0
-    output["δαp2vαp"] = δαp2vαp
-    output["θδb_B0"] = spanAngle(e_δb,B0)
-    output["θδb_r"] = spanAngle(e_δb,e_r)
-    output["θδb_δαp"] = spanAngle(e_δb,e_δαp)
-    output["θδb_vαp0"] = spanAngle(e_δb,vαp0)
+    # Fαp = svd(Σαp)
+    # v1αp = Fαp.U[:,1]
+    # v2αp = Fαp.U[:,2]
+    # v3αp = Fαp.U[:,3]
+    # e_δαp = v1αp
+    # vαp0 = vec(mean(vαp_rtn,dims=1))
+    # δαp2vαp = sum(abs2,vαp_rtn_scaled) / (length(αEpoch) * sum(abs2,vαp0))
+    drift2va = norm(mean(vαp_rtn,dims=1))/va0
+    δα2va = sqrt(sum(abs2,vα_scaled)/size(vα_scaled)[1])/va0
+    δα2vas = sqrt.(sum(abs2,vα_scaled,dims=2))./va0
+    drift2vas = fill(drift2va,size(δα2vas))
+    δαp2va = sqrt(sum(abs2,vαp_rtn_scaled)/size(vαp_rtn_scaled)[1])/va0
+    δp2va = sqrt(sum(abs2,vp_scaled)/size(vp_scaled)[1])/va0
+    δαp2drift = δαp2va/drift2va
+
+    output["drift2va"] = drift2va
+    output["drift2vas"] = drift2vas
+    output["δα2va"] = δα2va
+    output["δα2vas"] = δα2vas
+    output["δαp2va"] = δαp2va
+    output["δαp2drift"] = δαp2drift
+
+    # output["e_δαp"] = e_δαp
+    # output["vαp0"] = vαp0
+    # output["δαp2vαp"] = δαp2vαp
+    # output["θδb_B0"] = spanAngle(e_δb,B0)
+    # output["θδb_r"] = spanAngle(e_δb,e_r)
+    # output["θδb_δαp"] = spanAngle(e_δb,e_δαp)
+    # output["θδb_vαp0"] = spanAngle(e_δb,vαp0)
 
 
     # @show norm(v1)
@@ -1739,8 +1757,8 @@ function statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList;
         findall(vec((epoch.>epoch1) .& (epoch.<epoch2)))
     end
     sbpoints = []
-    sbpoints1 = []
-    sbpoints2 = []
+    # sbpoints1 = []
+    # sbpoints2 = []
     maybesbpoints = []
 
     for sbidx in 1:size(sbEpochList)[1]
@@ -1758,16 +1776,16 @@ function statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList;
             αVars["alpha_epoch"],
             sbEpochList[sbidx,1],
             sbEpochList[sbidx,2]))
-            append!(sbpoints1,
-            getpoints(
-            αVars["alpha_epoch"],
-            sbEpochList[sbidx,1]-deltaEpoch,
-            sbEpochList[sbidx,1]-deltaEpochSmall))
-            append!(sbpoints2,
-            getpoints(
-            αVars["alpha_epoch"],
-            sbEpochList[sbidx,1]-deltaEpoch,
-            sbEpochList[sbidx,2]-deltaEpochSmall))
+            # append!(sbpoints1,
+            # getpoints(
+            # αVars["alpha_epoch"],
+            # sbEpochList[sbidx,1]-deltaEpoch,
+            # sbEpochList[sbidx,1]-deltaEpochSmall))
+            # append!(sbpoints2,
+            # getpoints(
+            # αVars["alpha_epoch"],
+            # sbEpochList[sbidx,1]-deltaEpoch,
+            # sbEpochList[sbidx,2]-deltaEpochSmall))
         end
     end
 
@@ -1838,92 +1856,96 @@ function statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList;
     # # )
     # # savefig("figure\\hist_theta_vap_va.png")
     # 统计SB内外，漂移速度与R方向的夹角
-    θvαp_1 = filter(!isnan,θvαp[sbpoints1])
-    θvαp_2 = filter(!isnan,θvαp[sbpoints])
-    θvαp_3 = filter(!isnan,θvαp[sbpoints2])
-    histogram(
-    θvαp_1*180/π,
-    normalize = :pdf,
-    label = "1",
-    xlabel = "θ(Vαp,r) °",
-    alpha = 0.4,
-    )
-    histogram!(
-    θvαp_2*180/π,
-    normalize = :pdf,
-    label = "2",
-    alpha = 0.4,
-    )
-    histogram!(
-    θvαp_3*180/π,
-    normalize = :pdf,
-    label = "3",
-    alpha = 0.4,
-    )
-    savefig("figure\\hist_theta_vap.png")
+    # θvαp_1 = filter(!isnan,θvαp[sbpoints1])
+    # θvαp_2 = filter(!isnan,θvαp[sbpoints])
+    # θvαp_3 = filter(!isnan,θvαp[sbpoints2])
+    # histogram(
+    # θvαp_1*180/π,
+    # normalize = :pdf,
+    # label = "1",
+    # xlabel = "θ(Vαp,r) °",
+    # alpha = 0.4,
+    # )
+    # histogram!(
+    # θvαp_2*180/π,
+    # normalize = :pdf,
+    # label = "2",
+    # alpha = 0.4,
+    # )
+    # histogram!(
+    # θvαp_3*180/π,
+    # normalize = :pdf,
+    # label = "3",
+    # alpha = 0.4,
+    # )
+    # savefig("figure\\hist_theta_vap.png")
     # 统计SB内外，磁场与R方向的夹角
-    θva_1 = filter(!isnan,θva[sbpoints1])
-    θva_2 = filter(!isnan,θva[sbpoints])
-    θva_3 = filter(!isnan,θva[sbpoints2])
-    histogram(
-    θva_1*180/π,
-    normalize = :pdf,
-    label = "1",
-    xlabel = "θ(B,r) °",
-    alpha = 0.4,
-    )
-    histogram!(
-    θva_2*180/π,
-    normalize = :pdf,
-    label = "2",
-    alpha = 0.4,
-    )
-    histogram!(
-    θva_3*180/π,
-    normalize = :pdf,
-    label = "3",
-    alpha = 0.4,
-    )
-    savefig("figure\\hist_theta_va.png")
+    # θva_1 = filter(!isnan,θva[sbpoints1])
+    # θva_2 = filter(!isnan,θva[sbpoints])
+    # θva_3 = filter(!isnan,θva[sbpoints2])
+    # histogram(
+    # θva_1*180/π,
+    # normalize = :pdf,
+    # label = "1",
+    # xlabel = "θ(B,r) °",
+    # alpha = 0.4,
+    # )
+    # histogram!(
+    # θva_2*180/π,
+    # normalize = :pdf,
+    # label = "2",
+    # alpha = 0.4,
+    # )
+    # histogram!(
+    # θva_3*180/π,
+    # normalize = :pdf,
+    # label = "3",
+    # alpha = 0.4,
+    # )
+    # savefig("figure\\hist_theta_va.png")
 
     # SB和全体太阳风，漂移速度与R方向的夹角+磁场与R方向的夹角
-    sbpoints = Int.(sbpoints)
-    maybesbpoints = Int.(maybesbpoints)
-    θvαpSb = filter(!isnan,θvαp[sbpoints])
-    θvaSb = filter(!isnan,θva[sbpoints])
+    # sbpoints = Int.(sbpoints)
+    # maybesbpoints = Int.(maybesbpoints)
+    # θvαpSb = filter(!isnan,θvαp[sbpoints])
+    # θvaSb = filter(!isnan,θva[sbpoints])
+    #
+    # θvαpSw = filter(!isnan,θvαp)
+    # θvaSw = filter(!isnan,θva)
+    #
+    # histogram(
+    # θvαpSb*180/π,
+    # normalize = :pdf,
+    # label = "sb",
+    # xlabel = "θ(Vαp,r) °",
+    # alpha = 0.4,
+    # )
+    # histogram!(
+    # θvαpSw*180/π,
+    # normalize = :pdf,
+    # label = "sw",
+    # alpha = 0.4,
+    # )
+    # savefig("figure\\hist_theta_vap_sbsw.png")
+    #
+    # histogram(
+    # θvaSb*180/π,
+    # normalize = :pdf,
+    # label = "sb",
+    # xlabel = "θ(B,r) °",
+    # alpha = 0.4,
+    # )
+    # histogram!(
+    # θvaSw*180/π,
+    # normalize = :pdf,
+    # label = "sw",
+    # alpha = 0.4,
+    # )
+    # savefig("figure\\hist_theta_va_sbsw.png")
 
-    θvαpSw = filter(!isnan,θvαp)
-    θvaSw = filter(!isnan,θva)
+    # 在SB和全部太阳风中验证Vαp0与VA在不同大小时候，α的扰动情况
+    # （放在sbEvent_calVectors里面计算更方便一点）
 
-    histogram(
-    θvαpSb*180/π,
-    normalize = :pdf,
-    label = "sb",
-    xlabel = "θ(Vαp,r) °",
-    alpha = 0.4,
-    )
-    histogram!(
-    θvαpSw*180/π,
-    normalize = :pdf,
-    label = "sw",
-    alpha = 0.4,
-    )
-    savefig("figure\\hist_theta_vap_sbsw.png")
-
-    histogram(
-    θvaSb*180/π,
-    normalize = :pdf,
-    label = "sb",
-    xlabel = "θ(B,r) °",
-    alpha = 0.4,
-    )
-    histogram!(
-    θvaSw*180/π,
-    normalize = :pdf,
-    label = "sw",
-    alpha = 0.4,
-    )
-    savefig("figure\\hist_theta_va_sbsw.png")
     nothing
 end
 
@@ -1945,7 +1967,7 @@ er_rtn = [[1,0,0],]
 θva = spanAngle.(er_rtn,va_rtn)
 θvαp = spanAngle.(er_rtn,vαp_rtn)
 
-statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList)
+# statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList)
 
 
 #### 看看所有数据的时间序列
@@ -1976,11 +1998,17 @@ statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList)
 # )
 
 sbVecInfos = []
-θδb_B0s = []
-θδb_rs = []
-θδb_δαps = []
-θδb_vαp0s = []
-δαp2vαps = []
+# θδb_B0s = []
+# θδb_rs = []
+# θδb_δαps = []
+# θδb_vαp0s = []
+# δαp2vαps = []
+drift2vas = []
+drift2vass = []
+δα2vas = []
+δα2vass = []
+δαp2vas = []
+δαp2drifts = []
 
 sbidx = 187
 magVars = matread("data\\psp_fld_mag_rtn_2020b.mat")
@@ -2039,11 +2067,18 @@ while sbEpochList[sbidx,2]<magVars["mag_epoch"][end]
     output["sbidx"] = sbidx
     push!(sbVecInfos,output)
     if output["αdataFlag"]==1
-        push!(θδb_B0s,output["θδb_B0"]*180/π)
-        push!(θδb_rs,output["θδb_r"]*180/π)
-        push!(θδb_δαps,output["θδb_δαp"]*180/π)
-        push!(θδb_vαp0s,output["θδb_vαp0"]*180/π)
-        push!(δαp2vαps,output["δαp2vαp"])
+        # push!(θδb_B0s,output["θδb_B0"]*180/π)
+        # push!(θδb_rs,output["θδb_r"]*180/π)
+        # push!(θδb_δαps,output["θδb_δαp"]*180/π)
+        # push!(θδb_vαp0s,output["θδb_vαp0"]*180/π)
+        # push!(δαp2vαps,output["δαp2vαp"])
+        append!(drift2vas,output["drift2va"])
+        append!(drift2vass,output["drift2vas"])
+        append!(δα2vas,output["δα2va"])
+        append!(δα2vass,output["δα2vas"])
+        append!(δαp2vas,output["δαp2va"])
+        append!(δαp2drifts,output["δαp2drift"])
+
     end
     global sbidx += 1
 end
@@ -2104,11 +2139,12 @@ while sbEpochList[sbidx, 2] < magVars["mag_epoch"][end]
     output["sbidx"] = sbidx
     push!(sbVecInfos,output)
     if output["αdataFlag"]==1
-        push!(θδb_B0s,output["θδb_B0"]*180/π)
-        push!(θδb_rs,output["θδb_r"]*180/π)
-        push!(θδb_δαps,output["θδb_δαp"]*180/π)
-        push!(θδb_vαp0s,output["θδb_vαp0"]*180/π)
-        push!(δαp2vαps,output["δαp2vαp"])
+        append!(drift2vas,output["drift2va"])
+        append!(drift2vass,output["drift2vas"])
+        append!(δα2vas,output["δα2va"])
+        append!(δα2vass,output["δα2vas"])
+        append!(δαp2vas,output["δαp2va"])
+        append!(δαp2drifts,output["δαp2drift"])
     end
     global sbidx += 1
 end
@@ -2170,112 +2206,132 @@ while sbEpochList[sbidx,2]<datetime2epoch(tend)
     output["sbidx"] = sbidx
     push!(sbVecInfos,output)
     if output["αdataFlag"]==1
-        push!(θδb_B0s,output["θδb_B0"]*180/π)
-        push!(θδb_rs,output["θδb_r"]*180/π)
-        push!(θδb_δαps,output["θδb_δαp"]*180/π)
-        push!(θδb_vαp0s,output["θδb_vαp0"]*180/π)
-        push!(δαp2vαps,output["δαp2vαp"])
+        append!(drift2vas,output["drift2va"])
+        append!(drift2vass,output["drift2vas"])
+        append!(δα2vas,output["δα2va"])
+        append!(δα2vass,output["δα2vas"])
+        append!(δαp2vas,output["δαp2va"])
+        append!(δαp2drifts,output["δαp2drift"])
     end
     global sbidx += 1
 end
 
+# 验证漂移速度接近VA的时候，α不参与阿尔芬扰动
+histogram2d(
+log10.(drift2vass),
+log10.(δα2vass),
+color=:rainbow,
+# ylims=(0,10),
+xlabel="log10(Vαp0/VA)",
+ylabel="log10(δVα/VA)",
+)
+savefig("figure\\hist_deltava_vs_vap.png")
+histogram2d(
+log10.(drift2vass),
+log10.(δα2vass),
+color=:rainbow,
+# ylims=(0,10),
+xlabel="log10(Vαp0/VA)",
+ylabel="log10(δVα/VA)",
+)
+savefig("figure\\hist_deltava_vs_vap.png")
 # 统计每个sb里面矢量的特征
-θB0_vαp0s = []
-θB0_δvαps = []
-θvαp0_rs = []
-θB0_rs = []
-for theinfo in sbVecInfos
-    if theinfo["αdataFlag"] == 1
-
-        push!(θB0_δvαps,
-        spanAngle(theinfo["B0"],theinfo["e_δαp"])*180/π)
-
-        if theinfo["δαp2vαp"]<1
-            push!(θvαp0_rs,
-            spanAngle(theinfo["vαp0"],[1,0,0])*180/π)
-            push!(θB0_vαp0s,
-            spanAngle(theinfo["B0"],theinfo["vαp0"])*180/π)
-            push!(θB0_rs,
-            spanAngle(theinfo["B0"],[1,0,0])*180/π)
-        end
-    end
-end
-
-histogram(
-log10.(δαp2vαps),
-xlabel = "log10(δVαp²/Vαp0²)",
-normalize = :pdf,
-legend = false,
-# xlims = (0, 20),
-)
-savefig("figure\\hist_deltaVap2Vap.png")
-
-histogram(
-θδb_δαps,
-xlabel = "θ",
-label = "δb^δvαp",
-normalize = :pdf,
-alpha = 0.4,
-xlims = (0,180),
-# ylims = (0,0.025),
-)
-histogram!(
-θδb_vαp0s,
-xlabel = "θ",
-label = "δb^vαp0",
-normalize = :pdf,
-alpha = 0.4,
-)
-savefig("figure\\hist_theta_deltab_and_others1.png")
-histogram(
-θδb_B0s,
-xlabel = "θ",
-label = "δb^B0",
-normalize = :pdf,
-alpha = 0.4,
-xlims = (0,180),
-)
-histogram!(
-θδb_rs,
-xlabel = "θ",
-label = "δb^r",
-normalize = :pdf,
-alpha = 0.4,
-)
-savefig("figure\\hist_theta_deltab_and_others2.png")
-histogram(
-θB0_vαp0s,
-xlabel = "θ",
-label = "vαp0^B0",
-normalize = :pdf,
-alpha = 0.4,
-xlims = (0,180),
-)
-histogram!(
-θB0_δvαps,
-xlabel = "θ",
-label = "δvαp^B0",
-normalize = :pdf,
-alpha = 0.4,
-)
-savefig("figure\\hist_theta_deltab_and_others3.png")
-
-histogram(
-θvαp0_rs,
-xlabel = "θ",
-label = "r^Vαp0",
-normalize = :pdf,
-xlims = (0,180),
-alpha = 0.4,
-)
-histogram!(
-θB0_rs,
-xlabel = "θ",
-label = "r^B0",
-normalize = :pdf,
-alpha = 0.4,
-)
-savefig("figure\\hist_theta_vap_and_r.png")
+# θB0_vαp0s = []
+# θB0_δvαps = []
+# θvαp0_rs = []
+# θB0_rs = []
+# for theinfo in sbVecInfos
+#     if theinfo["αdataFlag"] == 1
+#
+#         push!(θB0_δvαps,
+#         spanAngle(theinfo["B0"],theinfo["e_δαp"])*180/π)
+#
+#         if theinfo["δαp2vαp"]<1
+#             push!(θvαp0_rs,
+#             spanAngle(theinfo["vαp0"],[1,0,0])*180/π)
+#             push!(θB0_vαp0s,
+#             spanAngle(theinfo["B0"],theinfo["vαp0"])*180/π)
+#             push!(θB0_rs,
+#             spanAngle(theinfo["B0"],[1,0,0])*180/π)
+#         end
+#     end
+# end
+#
+# histogram(
+# log10.(δαp2vαps),
+# xlabel = "log10(δVαp²/Vαp0²)",
+# normalize = :pdf,
+# legend = false,
+# # xlims = (0, 20),
+# )
+# savefig("figure\\hist_deltaVap2Vap.png")
+#
+# histogram(
+# θδb_δαps,
+# xlabel = "θ",
+# label = "δb^δvαp",
+# normalize = :pdf,
+# alpha = 0.4,
+# xlims = (0,180),
+# # ylims = (0,0.025),
+# )
+# histogram!(
+# θδb_vαp0s,
+# xlabel = "θ",
+# label = "δb^vαp0",
+# normalize = :pdf,
+# alpha = 0.4,
+# )
+# savefig("figure\\hist_theta_deltab_and_others1.png")
+# histogram(
+# θδb_B0s,
+# xlabel = "θ",
+# label = "δb^B0",
+# normalize = :pdf,
+# alpha = 0.4,
+# xlims = (0,180),
+# )
+# histogram!(
+# θδb_rs,
+# xlabel = "θ",
+# label = "δb^r",
+# normalize = :pdf,
+# alpha = 0.4,
+# )
+# savefig("figure\\hist_theta_deltab_and_others2.png")
+# histogram(
+# θB0_vαp0s,
+# xlabel = "θ",
+# label = "vαp0^B0",
+# normalize = :pdf,
+# alpha = 0.4,
+# xlims = (0,180),
+# )
+# histogram!(
+# θB0_δvαps,
+# xlabel = "θ",
+# label = "δvαp^B0",
+# normalize = :pdf,
+# alpha = 0.4,
+# )
+# savefig("figure\\hist_theta_deltab_and_others3.png")
+#
+# histogram(
+# θvαp0_rs,
+# xlabel = "θ",
+# label = "r^Vαp0",
+# normalize = :pdf,
+# xlims = (0,180),
+# alpha = 0.4,
+# )
+# histogram!(
+# θB0_rs,
+# xlabel = "θ",
+# label = "r^B0",
+# normalize = :pdf,
+# alpha = 0.4,
+# )
+# savefig("figure\\hist_theta_vap_and_r.png")
 
 # for sbidx in 1:sbNum
 # # for sbidx in 187:200
