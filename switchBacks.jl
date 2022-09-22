@@ -17,45 +17,8 @@ using XLSX
 # "2021b"=>[DateTime(2021,7,1),DateTime(2022,1,1)],
 # )
 
-goodevent = [267 284 318 531 562 1224 1231 1247 1253 1290]
-notSB = [188,190,198,203,204,205,211,215,216,217,218,
-221,222,224,237,245,250,252,258,262,
-263,265,272,288,290,296,302,313,318,
-320,321,322,325,326,329,330,331,332,
-336,339,344,345,346,347,348,457,513,
-514,518,519,524,531,533,534,535,536,
-537,538,542,543,548,550,555,556,569,
-570,582,583,584,588,592,594,603,612,
-616,619,620,621,622,623,624,626,630,
-631,632,633,785,786,791,794,874,878,
-887,889,891,911,913,926,927,928,930,
-931,932,933,934,939,940,941,942,943,
-948,950,951,952,953,956,958,959,1169,
-1170,1171,1172,1173,1174,1181,1182,
-1183,1189,1190,1191,1194,1195,1196,
-1198,1199,1200,1201,1206,1213,1215,
-1222,1224,1225,1226,1227,1232,1241,
-1245,1248,1250,1257,1260,1263,1266,
-1278,1280,1281,1282,1284,1289,1294,
-1295,1303,1309,1316,1317,1321,
-] # sb: 1、速度要有跃变 2、br的跳动比较明显
-maybenotSB = [191,192,193,196,199,200,
-202,206,208,209,210,219,223,232,239,244,
-246,259,273,284,299,300,306,307,310,323,
-328,334,337,515,532,541,546,547,553,559,
-566,568,572,573,574,575,577,578,580,593,
-596,598,602,611,617,618,627,628,629,634,
-742,790,873,878,879,880,882,883,884,885,
-886,888,892,905,906,908,909,914,922,924,
-929,944,945,949,1175,1178,1184,1185,1186,
-1188,1192,1204,1207,1210,1211,1212,1214,
-1216,1217,1218,1219,1220,1228,1229,1233,
-1243,1244,1246,1249,1251,1253,1254,1256,
-1261,1265,1267,1269,1270,1272,1285,1287,
-1291,1292,1293,1298,1300,1308,1319,1320,
-]
-#790附近有几个事件，磁场有明显的转向，但是速度非常平稳，挺奇怪的
-# 884这样的感觉是多个SB
+include("caseIdxs.jl")
+
 
 function loadData()
     pVars = matread("data\\psp_spi_sf00.mat")
@@ -1594,37 +1557,54 @@ function sbEvent_timeplot(epoch1,epoch2,pVars,αVars,modifiedVars,magVars,vαp,�
     ylabel = "θ(Vαp,B) °",
     xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
     ylims = (0,180),
+    # xticks = nothing,
+    )
+    # p9 = plot(
+    # magTime,
+    # theta*180/π,
+    # legend = false,
+    # ylabel = "θ °",
+    # ylims = (-90,90),
+    # xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
+    # )
+    p10=plot(
+    αTime,
+    va,
+    legend=false,
+    ylabel = "VA Km/s",
+    xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
     xticks = nothing,
     )
-    p9 = plot(
-    magTime,
-    theta*180/π,
-    legend = false,
-    ylabel = "θ °",
-    ylims = (-90,90),
-    xlims = (epoch2datetime(epoch1),epoch2datetime(epoch2)),
-    )
-    plot!(
-    p9,
-    [epoch2datetime(epoch1_sb),epoch2datetime(epoch1_sb)],
-    [-90,90],
-    ls = :dot,
-    lw = 2,
-    color = :black,
-    )
-    plot!(
-    p9,
-    [epoch2datetime(epoch2_sb),epoch2datetime(epoch2_sb)],
-    [-90,90],
-    ls = :dot,
-    lw = 2,
-    color = :black,
-    )
-    push!(ts,p1,p2,p3,p4,p5,p6,p7,p8,p9)
-    tsL = @layout grid(9,1)
-    plot(ts...,layout=tsL,size=(800,1050))
+    ps = [p1,p2,p3,p4,p5,p8,p10]
+    ymins = [minimum(pVel),minimum(mag_rtn),minimum(vαp_rtn2α),
+    minimum(αVel),minimum(vαp),0,minimum(va)]
+    ymaxs = [maximum(pVel),maximum(mag_rtn),maximum(vαp_rtn2α),
+    maximum(αVel),maximum(vαp),180,maximum(va)]
+    for (idxp,thep) in enumerate(ps)
+        plot!(
+        thep,
+        [epoch2datetime(epoch1_sb),epoch2datetime(epoch1_sb)],
+        [ymins[idxp],ymaxs[idxp]],
+        ls = :dot,
+        lw = 2,
+        color = :black,
+        label = :none,
+        )
+        plot!(
+        thep,
+        [epoch2datetime(epoch2_sb),epoch2datetime(epoch2_sb)],
+        [ymins[idxp],ymaxs[idxp]],
+        ls = :dot,
+        lw = 2,
+        color = :black,
+        label = :none,
+        )
+    end
+    push!(ts,p1,p2,p3,p4,p5,p10,p8)
+    tsL = @layout grid(7,1)
+    plot(ts...,layout=tsL,size=(900,800))
     #size=(900,600),
-    savefig("figure\\labeledSbEvents\\"*figDir*"\\sbtimeplots_1\\"*figName*".png")
+    savefig("figure\\deltaVapAndVap0\\deltaVap\\timeplot\\"*figName*".png")
 end
 
 function sbEvent_calVectors(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
@@ -1713,6 +1693,8 @@ function sbEvent_calVectors(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
         output["αdataFlag"] = 0
         return output
     end
+
+    pVel2αEpoch_scaled = pVel2αEpoch .- mean(pVel2αEpoch,dims=1)
     # @show Σαp
     # Fαp = svd(Σαp)
     # v1αp = Fαp.U[:,1]
@@ -1725,16 +1707,26 @@ function sbEvent_calVectors(epoch1,epoch2,pVars,αVars,modifiedVars,magVars;
     δα2va = sqrt(sum(abs2,vα_scaled)/size(vα_scaled)[1])/va0
     δα2vas = sqrt.(sum(abs2,vα_scaled,dims=2))./va0
     drift2vas = fill(drift2va,size(δα2vas))
+    Vαp2vas = sqrt.(sum(abs2,vαp_rtn,dims=2)) ./ va0
+    bias0Vαp2vas = sqrt.( sum(abs2,vαp_rtn.-mean(va_rtn,dims=1), dims=2) )./va0
+    biasRealtimeVαp2vas = sqrt.( sum(abs2,vαp_rtn.-va_rtn,dims=2) )./va0
     δαp2va = sqrt(sum(abs2,vαp_rtn_scaled)/size(vαp_rtn_scaled)[1])/va0
+    δαp2vas = sqrt.(sum(abs2,vαp_rtn_scaled,dims=2))/va0
     δp2va = sqrt(sum(abs2,vp_scaled)/size(vp_scaled)[1])/va0
+    δp2vas = sqrt.(sum(abs2,pVel2αEpoch_scaled,dims=2))/va0
     δαp2drift = δαp2va/drift2va
 
     output["drift2va"] = drift2va
     output["drift2vas"] = drift2vas
+    output["Vαp2vas"] = Vαp2vas
     output["δα2va"] = δα2va
     output["δα2vas"] = δα2vas
     output["δαp2va"] = δαp2va
     output["δαp2drift"] = δαp2drift
+    output["bias0Vαp2vas"] = bias0Vαp2vas
+    output["biasRealtimeVαp2vas"] = biasRealtimeVαp2vas
+    output["δαp2vas"] = δαp2vas
+    output["δp2vas"] = δp2vas
 
     # output["e_δαp"] = e_δαp
     # output["vαp0"] = vαp0
@@ -1970,6 +1962,50 @@ er_rtn = [[1,0,0],]
 # statSbSw(αVars,vαp,vαp2va,θvαp_va,θva,θvαp,sbEpochList)
 
 
+############ 一个事件时间序列 ###############
+@load "data\\sbCaseMagData.jld2" magVars
+sbidx = 247
+sbEvent_timeplot(
+sbEpochList[sbidx,1],
+sbEpochList[sbidx,2],
+pVars,
+αVars,
+modifiedVars,
+magVars,
+vαp,
+θvαp_va;
+figName="SBevent"*string(sbidx),
+deltaMins=60,
+# figDir = figDir,
+)
+for sbidx in deltaVapCases
+    sbEvent_timeplot(
+    sbEpochList[sbidx,1],
+    sbEpochList[sbidx,2],
+    pVars,
+    αVars,
+    modifiedVars,
+    magVars,
+    vαp,
+    θvαp_va;
+    figName="SBevent"*string(sbidx),
+    deltaMins=60,
+    # figDir = figDir,
+    )
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
 #### 看看所有数据的时间序列
 # t1 = DateTime(2020,5,1)
 # αTimeLst = epoch2datetime.(αVars["alpha_epoch"])
@@ -2009,6 +2045,11 @@ drift2vass = []
 δα2vass = []
 δαp2vas = []
 δαp2drifts = []
+Vαp2vass = []
+bias0Vαp2vass = []
+biasRealtimeVαp2vass = []
+δαp2vass = []
+δp2vass = []
 
 sbidx = 187
 magVars = matread("data\\psp_fld_mag_rtn_2020b.mat")
@@ -2066,7 +2107,7 @@ while sbEpochList[sbidx,2]<magVars["mag_epoch"][end]
     )
     output["sbidx"] = sbidx
     push!(sbVecInfos,output)
-    if output["αdataFlag"]==1
+    if (output["αdataFlag"]==1) & (figDir == "issb")
         # push!(θδb_B0s,output["θδb_B0"]*180/π)
         # push!(θδb_rs,output["θδb_r"]*180/π)
         # push!(θδb_δαps,output["θδb_δαp"]*180/π)
@@ -2078,7 +2119,11 @@ while sbEpochList[sbidx,2]<magVars["mag_epoch"][end]
         append!(δα2vass,output["δα2vas"])
         append!(δαp2vas,output["δαp2va"])
         append!(δαp2drifts,output["δαp2drift"])
-
+        append!(Vαp2vass,output["Vαp2vas"])
+        append!(bias0Vαp2vass,output["bias0Vαp2vas"])
+        append!(biasRealtimeVαp2vass,output["biasRealtimeVαp2vas"])
+        append!(δαp2vass,output["δαp2vas"])
+        append!(δp2vass,output["δp2vas"])
     end
     global sbidx += 1
 end
@@ -2138,13 +2183,18 @@ while sbEpochList[sbidx, 2] < magVars["mag_epoch"][end]
     )
     output["sbidx"] = sbidx
     push!(sbVecInfos,output)
-    if output["αdataFlag"]==1
+    if (output["αdataFlag"]==1) & (figDir == "issb")
         append!(drift2vas,output["drift2va"])
         append!(drift2vass,output["drift2vas"])
         append!(δα2vas,output["δα2va"])
         append!(δα2vass,output["δα2vas"])
         append!(δαp2vas,output["δαp2va"])
         append!(δαp2drifts,output["δαp2drift"])
+        append!(Vαp2vass,output["Vαp2vas"])
+        append!(bias0Vαp2vass,output["bias0Vαp2vas"])
+        append!(biasRealtimeVαp2vass,output["biasRealtimeVαp2vas"])
+        append!(δαp2vass,output["δαp2vas"])
+        append!(δp2vass,output["δp2vas"])
     end
     global sbidx += 1
 end
@@ -2205,36 +2255,46 @@ while sbEpochList[sbidx,2]<datetime2epoch(tend)
     )
     output["sbidx"] = sbidx
     push!(sbVecInfos,output)
-    if output["αdataFlag"]==1
+    if (output["αdataFlag"]==1) & (figDir == "issb")
         append!(drift2vas,output["drift2va"])
         append!(drift2vass,output["drift2vas"])
         append!(δα2vas,output["δα2va"])
         append!(δα2vass,output["δα2vas"])
         append!(δαp2vas,output["δαp2va"])
         append!(δαp2drifts,output["δαp2drift"])
+        append!(Vαp2vass,output["Vαp2vas"])
+        append!(bias0Vαp2vass,output["bias0Vαp2vas"])
+        append!(biasRealtimeVαp2vass,output["biasRealtimeVαp2vas"])
+        append!(δαp2vass,output["δαp2vas"])
+        append!(δp2vass,output["δp2vas"])
     end
     global sbidx += 1
 end
 
+@save "data//sbCaseVecInfo.jld2" drift2vas drift2vass δα2vas δα2vass δαp2vas δαp2drifts Vαp2vass bias0Vαp2vass biasRealtimeVαp2vass δαp2vass δp2vass
+# @load "data//sbCaseVecInfo.jld2"
 # 验证漂移速度接近VA的时候，α不参与阿尔芬扰动
 histogram2d(
-log10.(drift2vass),
-log10.(δα2vass),
+log10.(Vαp2vass),
+# log10.(δαp2vass),
+# log10.(δα2vass),
+log10.(δp2vass),
 color=:rainbow,
 # ylims=(0,10),
-xlabel="log10(Vαp0/VA)",
-ylabel="log10(δVα/VA)",
+xlabel="log10(Vαp/VA)",
+ylabel="log10(δVp/VA)",
 )
-savefig("figure\\hist_deltava_vs_vap.png")
+savefig("figure\\hist_vap_vs_deltavp_log.png")
 histogram2d(
-log10.(drift2vass),
-log10.(δα2vass),
+Vαp2vass,
+δα2vass,
 color=:rainbow,
-# ylims=(0,10),
-xlabel="log10(Vαp0/VA)",
-ylabel="log10(δVα/VA)",
+ylims=(0,2),
+xlims=(0,2),
+xlabel="Vαp/VA",
+ylabel="δVα/VA",
 )
-savefig("figure\\hist_deltava_vs_vap.png")
+savefig("figure\\hist_vap_vs_deltava.png")
 # 统计每个sb里面矢量的特征
 # θB0_vαp0s = []
 # θB0_δvαps = []

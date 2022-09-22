@@ -10,6 +10,8 @@ using CurveFit
 using JLD2
 using XLSX
 using StatsBase
+
+include("caseIdxs.jl")
 # using CoordinateTransformations
 
 # 原始磁场数据，每个文件对应的时间
@@ -19,45 +21,7 @@ using StatsBase
 # "2021b"=>[DateTime(2021,7,1),DateTime(2022,1,1)],
 # )
 
-goodevent = [267 284 318 531 562 1224 1231 1247 1253 1290]
-notSB = [188,190,198,203,204,205,211,215,216,217,218,
-221,222,224,237,245,250,252,258,262,
-263,265,272,288,290,296,302,313,318,
-320,321,322,325,326,329,330,331,332,
-336,339,344,345,346,347,348,457,513,
-514,518,519,524,531,533,534,535,536,
-537,538,542,543,548,550,555,556,569,
-570,582,583,584,588,592,594,603,612,
-616,619,620,621,622,623,624,626,630,
-631,632,633,785,786,791,794,874,878,
-887,889,891,911,913,926,927,928,930,
-931,932,933,934,939,940,941,942,943,
-948,950,951,952,953,956,958,959,1169,
-1170,1171,1172,1173,1174,1181,1182,
-1183,1189,1190,1191,1194,1195,1196,
-1198,1199,1200,1201,1206,1213,1215,
-1222,1224,1225,1226,1227,1232,1241,
-1245,1248,1250,1257,1260,1263,1266,
-1278,1280,1281,1282,1284,1289,1294,
-1295,1303,1309,1316,1317,1321,
-] # sb: 1、速度要有跃变 2、br的跳动比较明显
-maybenotSB = [191,192,193,196,199,200,
-202,206,208,209,210,219,223,232,239,244,
-246,259,273,284,299,300,306,307,310,323,
-328,334,337,515,532,541,546,547,553,559,
-566,568,572,573,574,575,577,578,580,593,
-596,598,602,611,617,618,627,628,629,634,
-742,790,873,878,879,880,882,883,884,885,
-886,888,892,905,906,908,909,914,922,924,
-929,944,945,949,1175,1178,1184,1185,1186,
-1188,1192,1204,1207,1210,1211,1212,1214,
-1216,1217,1218,1219,1220,1228,1229,1233,
-1243,1244,1246,1249,1251,1253,1254,1256,
-1261,1265,1267,1269,1270,1272,1285,1287,
-1291,1292,1293,1298,1300,1308,1319,1320,
-]
-#790附近有几个事件，磁场有明显的转向，但是速度非常平稳，挺奇怪的
-# 884这样的感觉是多个SB
+
 
 function loadData()
     pVars = matread("data\\psp_spi_sf00.mat")
@@ -137,6 +101,121 @@ function cartesian2Polar(x::Vector;dim=2)
     (r,θ)
 end
 
+"""
+输入总数据和事件的时间，得到sb事件各种扰动之间的相对大小，用于列表筛选和分类事件
+"""
+function getCaseInfo(sbepoch1,sbepoch2,pVars,αVars,modifiedVars)
+    output = Dict("αdataFlag"=>NaN,
+    "δVα2VA"=>NaN,
+    "t1"=>epoch2datetime(sbepoch1),
+    "t2"=>epoch2datetime(sbepoch2)
+    )
+    pPoints = vec((pVars["p_epoch"].>=sbepoch1) .& (pVars["p_epoch"].<=sbepoch2))
+    pEpoch = pVars["p_epoch"][pPoints]
+    pVel = pVars["p_vel_rtn_sun"][pPoints,:]
+    # pTemp = pVars["p_temp"][pPoints]
+    αPoints =  vec((αVars["alpha_epoch"].>=sbepoch1) .&
+                (αVars["alpha_epoch"].<=sbepoch2))
+    αEpoch = αVars["alpha_epoch"][αPoints]
+    αVel = αVars["alpha_vel_rtn_sun"][αPoints,:]
+    if (length(αVel)-sum(isnan.(αVel))) < 10
+        output["αdataFlag"] = 0
+        return output
+    end
+    # αTemp = αVars["alpha_temp"][αPoints]
+    va = modifiedVars["va_alphaEpoch"][αPoints]
+    va_rtn = modifiedVars["va_rtn_alphaEpoch"][αPoints,:]
+    vαp_rtn2α = αVel .- modifiedVars["p_vel_rtn_sun_alphaEpoch"][αPoints,:]
+
+    nonNaNpoints = vec(any(isnan.(pVel),dims=2) .!= 1)
+    pEpoch = pEpoch[nonNaNpoints]
+    pVel = pVel[nonNaNpoints,:]
+    nonNaNpoints = vec(any(isnan.(αVel),dims=2) .!= 1)
+    αEpoch = αEpoch[nonNaNpoints]
+    αVel = αVel[nonNaNpoints,:]
+    vαp_rtn2α = vαp_rtn2α[nonNaNpoints,:]
+    va = va[nonNaNpoints]
+    va_rtn = va_rtn[nonNaNpoints,:]
+
+    pTime = epoch2datetime.(pEpoch)
+    vp_scaled = pVel.-mean(pVel,dims=1)
+    αTime = epoch2datetime.(αEpoch)
+    va0 = mean(va)
+    vαp_rtn_scaled = vαp_rtn2α .- mean(vαp_rtn2α,dims=1)
+    vα_scaled = αVel .- mean(αVel,dims=1)
+    vαp0 = norm(mean(vαp_rtn2α,dims=1))
+    drift2va = vαp0/va0
+    δα2va = sqrt(sum(abs2,vα_scaled)/size(vα_scaled)[1])/va0
+    δα2vas = sqrt.(sum(abs2,vα_scaled,dims=2))./va0
+    δαp2va = sqrt(sum(abs2,vαp_rtn_scaled)/size(vαp_rtn_scaled)[1])/va0
+    δp2va = sqrt(sum(abs2,vp_scaled)/size(vp_scaled)[1])/va0
+    δαp2drift = δαp2va/drift2va
+
+    output["δVα2VA"] = δα2va
+    output["δVp2VA"] = δp2va
+    output["δVαp2VA"] = δαp2va
+    output["Vαp2VA"] = drift2va
+    output["δVαp2Vαp"] = δαp2drift
+    output
+end
+
+function getAllCaseInfo(pVars,αVars,modifiedVars,sbEpochList)
+    caseIdx = []
+    δVα2VA = []
+    δVp2VA = []
+    δVαp2VA = []
+    Vαp2VA = []
+    δVαp2Vαp = []
+    t1 = []
+    t2 = []
+    magFiles = ["data\\psp_fld_mag_rtn_2020b.mat",
+    "data\\psp_fld_mag_rtn_2021a.mat",
+    "data\\psp_fld_mag_rtn_2021b.mat"]
+
+    sbidx = 187
+    tend = DateTime(2021,9,1)
+    for magFile in magFiles
+        magVars = matread(magFile)
+        while sbEpochList[sbidx,2]<min(magVars["mag_epoch"][end],datetime2epoch(tend))
+            println("sbidx=",sbidx)
+            if sbidx in notSB
+                sbidx += 1
+                continue
+            elseif sbidx in maybenotSB
+                sbidx += 1
+                continue
+            end
+            sbepoch1 = sbEpochList[sbidx,1]
+            sbepoch2 = sbEpochList[sbidx,2]
+            output = getCaseInfo(sbepoch1,sbepoch2,pVars,αVars,modifiedVars)
+            if output["αdataFlag"] == 0
+                sbidx += 1
+                continue
+            end
+            push!(caseIdx,sbidx)
+            push!(δVα2VA,output["δVα2VA"])
+            push!(δVp2VA,output["δVp2VA"])
+            push!(δVαp2VA,output["δVαp2VA"])
+            push!(Vαp2VA,output["Vαp2VA"])
+            push!(δVαp2Vαp,output["δVαp2Vαp"])
+            push!(t1,output["t1"])
+            push!(t2,output["t2"])
+            sbidx += 1
+        end
+    end
+    output = Dict(
+    "caseIdx"=>caseIdx,
+    "t1"=>t1,
+    "t2"=>t2,
+    "δVα2VA"=>δVα2VA,
+    "δVp2VA"=>δVp2VA,
+    "δVαp2VA"=>δVαp2VA,
+    "Vαp2VA"=>Vαp2VA,
+    "δVαp2Vαp"=>δVαp2Vαp,
+    )
+    return output
+end
+
 pVars,αVars,modifiedVars,modifiedVars_va = loadData()
 sbList = loadList()
 sbEpochList = sbList["switchback_time_output"]
@@ -156,91 +235,213 @@ er_rtn = [[1,0,0],]
 θvαp = spanAngle.(er_rtn,vαp_rtn)
 
 
-magVars = matread("data\\psp_fld_mag_rtn_2020b.mat")
+# magVars = matread("data\\psp_fld_mag_rtn_2020b.mat")
+@load "data\\sbCaseMagData.jld2" magVars
 
-sbidx = 234
-sbepoch1 = sbEpochList[sbidx,1]
-sbepoch2 = sbEpochList[sbidx,2]
-
-pPoints = vec((pVars["p_epoch"].>=sbepoch1) .& (pVars["p_epoch"].<=sbepoch2))
-pEpoch = pVars["p_epoch"][pPoints]
-pTime = epoch2datetime.(pEpoch)
-pVel = pVars["p_vel_rtn_sun"][pPoints,:]
-vp_scaled = pVel.-mean(pVel,dims=1)
-# pTemp = pVars["p_temp"][pPoints]
-αPoints =  vec((αVars["alpha_epoch"].>=sbepoch1) .&
-            (αVars["alpha_epoch"].<=sbepoch2))
-αEpoch = αVars["alpha_epoch"][αPoints]
-αTime = epoch2datetime.(αEpoch)
-αVel = αVars["alpha_vel_rtn_sun"][αPoints,:]
-# αTemp = αVars["alpha_temp"][αPoints]
-va = modifiedVars["va_alphaEpoch"][αPoints]
-va0 = mean(va)
-va_rtn = modifiedVars["va_rtn_alphaEpoch"][αPoints,:]
-vαp_rtn2α = αVel .- modifiedVars["p_vel_rtn_sun_alphaEpoch"][αPoints,:]
-vαp_rtn_scaled = vαp_rtn2α .- mean(vαp_rtn2α,dims=1)
-vα_scaled = αVel .- mean(αVel,dims=1)
-vαp_event = vαp[αPoints]
-vαp0 = norm(mean(vαp_rtn2α,dims=1))
-drift2va = vαp0/va0
-δα2va = sqrt(sum(abs2,vα_scaled)/size(vα_scaled)[1])/va0
-δα2vas = sqrt.(sum(abs2,vα_scaled,dims=2))./va0
-δαp2va = sqrt(sum(abs2,vαp_rtn_scaled)/size(vαp_rtn_scaled)[1])/va0
-δp2va = sqrt(sum(abs2,vp_scaled)/size(vp_scaled)[1])/va0
-δαp2drift = δαp2va/drift2va
-magPoints = vec((magVars["mag_epoch"].>=sbepoch1) .&
-            (magVars["mag_epoch"].<=sbepoch2))
-magEpoch = magVars["mag_epoch"][magPoints]
-magTime = epoch2datetime.(magEpoch)
-mag_rtn = magVars["mag_rtn"][magPoints,:]
-theta = atan.(mag_rtn[:,2]./mag_rtn[:,1])
-θvαp_va_event = θvαp_va[αPoints]
-
-# 统计几个角度的分布直方图
-# 是看磁场方向还是磁场扰动的方向？
-vecb = mat2vec(mag_rtn)
-pb = cartesian2Polar.(vecb)
-θb = [pb[i][2] for i in 1:length(pb)]
-# θb = spanAngle.(er_rtn,vecb)
-vecVα = mat2vec(vα_scaled)
-pVα = cartesian2Polar.(vecVα)
-θVα = [pVα[i][2] for i in 1:length(pVα)]
-# θvα = spanAngle.(er_rtn,vecVα)
-vecVp = mat2vec(vp_scaled)
-pVp = cartesian2Polar.(vecVp)
-θVp = [pVp[i][2] for i in 1:length(pVp)]
-# θvp = spanAngle.(er_rtn,vecVp)
-vecVαp_event = mat2vec(vαp_rtn2α)
-pVαp = cartesian2Polar.(vecVαp_event)
-θVαp_event = [pVαp[i][2] for i in 1:length(pVαp)]
-
-# θvαp_event =  θvαp[αPoints]
+# test function zone
+# output = getAllCaseInfo(pVars,αVars,modifiedVars,sbEpochList)
+# XLSX.openxlsx("data\\sbCaseInfo.xlsx", mode="w") do xf
+#     sheet = xf[1]
+#     XLSX.rename!(sheet, "sbInfo")
+#     sheet["A1"] = "caseIdx"
+#     sheet["B1"] = "t1"
+#     sheet["C1"] = "t2"
+#     sheet["D1"] = "δVα"
+#     sheet["E1"] = "δVp"
+#     sheet["F1"] = "δVαp"
+#     sheet["G1"] = "Vαp"
+#     sheet["H1"] = "δVαp/Vαp"
+#
+#     sheet["A2", dim=1] = output["caseIdx"]
+#     sheet["B2", dim=1] = output["t1"]
+#     sheet["C2", dim=1] = output["t2"]
+#     sheet["D2", dim=1] = Float64.(output["δVα2VA"])
+#     sheet["E2", dim=1] = Float64.(output["δVp2VA"])
+#     sheet["F2", dim=1] = Float64.(output["δVαp2VA"])
+#     sheet["G2", dim=1] = Float64.(output["Vαp2VA"])
+#     sheet["H2", dim=1] = Float64.(output["δVαp2Vαp"])
+# end
+# scatter(output["δVp2VA"],output["δVα2VA"];
+# xlims=(0,5),
+# ylims=(0,5),
+# )
+#############################
 
 
-δθ = 0.2π
-θs = -π+δθ/2:δθ:π-δθ/2
-hb = fitHist(θb;θedges=-π:δθ:π)
-hVαp_event = fitHist(θVαp_event;θedges=-π:δθ:π)
-p1 = plot(θs, hb.weights/sum(hb.weights);
-proj = :polar, m = 2,
-label="b",
-title="Vαp0/VA=$(round(drift2va,digits=3)), "*
-"δVαp/VA=$(round(δαp2va,digits=3))")
-plot!(p1,θs, hVαp_event.weights/sum(hVαp_event.weights);
-proj = :polar, m = 2,
-label="Vαp")
-hVα = fitHist(θVα;θedges=-π:δθ:π)
-hVp = fitHist(θVp;θedges=-π:δθ:π)
-p2 = plot(θs, hVα.weights/sum(hVα.weights);
-proj = :polar, m = 2,
-label="δVα",
-title="δVα/VA=$(round(δα2va,digits=3))",
-)
-plot!(p2,θs, hVp.weights/sum(hVp.weights);
-proj = :polar, m = 2,
-label="δVp")
-plot(p1,p2;
-layout=@layout grid(1,2))
+
+
+# case study:
+function caseStudy(sbidx,dirName,sbEpochList,pVars,αVars,modifiedVars,magVars)
+    # for 1
+    # sbepoch1 = sbEpochList[sbidx,1]-1/24
+    # sbepoch2 = sbEpochList[sbidx,1]
+    # for 2
+    sbepoch1 = sbEpochList[sbidx,1]
+    sbepoch2 = sbEpochList[sbidx,2]
+
+    # output = getCaseInfo(sbepoch1,sbepoch2,pVars,αVars,modifiedVars)
+
+    pPoints = vec((pVars["p_epoch"].>=sbepoch1) .& (pVars["p_epoch"].<=sbepoch2))
+    pEpoch = pVars["p_epoch"][pPoints]
+    pVel = pVars["p_vel_rtn_sun"][pPoints,:]
+    # pTemp = pVars["p_temp"][pPoints]
+    αPoints =  vec((αVars["alpha_epoch"].>=sbepoch1) .&
+                (αVars["alpha_epoch"].<=sbepoch2))
+    αEpoch = αVars["alpha_epoch"][αPoints]
+    αVel = αVars["alpha_vel_rtn_sun"][αPoints,:]
+    # αTemp = αVars["alpha_temp"][αPoints]
+    # vαp_event = vαp[αPoints]
+    va = modifiedVars["va_alphaEpoch"][αPoints]
+    va_rtn = modifiedVars["va_rtn_alphaEpoch"][αPoints,:]
+    vαp_rtn2α = αVel .- modifiedVars["p_vel_rtn_sun_alphaEpoch"][αPoints,:]
+    magPoints = vec((magVars["mag_epoch"].>=sbepoch1) .&
+                (magVars["mag_epoch"].<=sbepoch2))
+    magEpoch = magVars["mag_epoch"][magPoints]
+    mag_rtn = magVars["mag_rtn"][magPoints,:]
+
+    # θvαp_va_event = θvαp_va[αPoints]
+
+    nonNaNpoints = vec(any(isnan.(pVel),dims=2) .!= 1)
+    pEpoch = pEpoch[nonNaNpoints]
+    pVel = pVel[nonNaNpoints,:]
+    pTime = epoch2datetime.(pEpoch)
+    vp_scaled = pVel.-mean(pVel,dims=1)
+    nonNaNpoints = vec(any(isnan.(αVel),dims=2) .!= 1)
+    αEpoch = αEpoch[nonNaNpoints]
+    αVel = αVel[nonNaNpoints,:]
+    vαp_rtn2α = vαp_rtn2α[nonNaNpoints,:]
+    va = va[nonNaNpoints]
+    va_rtn = va_rtn[nonNaNpoints,:]
+    nonNaNpoints = vec(any(isnan.(mag_rtn),dims=2) .!= 1)
+    mag_rtn = mag_rtn[nonNaNpoints,:]
+    magEpoch = magEpoch[nonNaNpoints]
+
+    magTime = epoch2datetime.(magEpoch)
+    theta = atan.(mag_rtn[:,2]./mag_rtn[:,1])
+    αTime = epoch2datetime.(αEpoch)
+    va0 = mean(va)
+    vαp_rtn_scaled = vαp_rtn2α .- mean(vαp_rtn2α,dims=1)
+    vα_scaled = αVel .- mean(αVel,dims=1)
+    vαp0 = norm(mean(vαp_rtn2α,dims=1))
+    drift2va = vαp0/va0
+    δα2va = sqrt(sum(abs2,vα_scaled)/size(vα_scaled)[1])/va0
+    δα2vas = sqrt.(sum(abs2,vα_scaled,dims=2))./va0
+    δαp2va = sqrt(sum(abs2,vαp_rtn_scaled)/size(vαp_rtn_scaled)[1])/va0
+    δp2va = sqrt(sum(abs2,vp_scaled)/size(vp_scaled)[1])/va0
+    δαp2drift = δαp2va/drift2va
+
+
+    # 统计几个角度的分布直方图
+    # 是看磁场方向还是磁场扰动的方向？
+    vecb = mat2vec(mag_rtn)
+    pb = cartesian2Polar.(vecb)
+    θb = [pb[i][2] for i in 1:length(pb)]
+    vecVa = mat2vec(va_rtn)
+    pVa = cartesian2Polar.(vecVa)
+    θVa = [pVa[i][2] for i in 1:length(pVa)]
+    rVa = [pVa[i][1]/va0 for i in 1:length(pVa)]
+    # θb = spanAngle.(er_rtn,vecb)
+    # vecVα = mat2vec(vα_scaled)
+    vecVα = mat2vec(αVel)
+    pVα = cartesian2Polar.(vecVα)
+    θVα = [pVα[i][2] for i in 1:length(pVα)]
+    rVα = [pVα[i][1]/va0 for i in 1:length(pVα)]
+    # θvα = spanAngle.(er_rtn,vecVα)
+    # vecVp = mat2vec(vp_scaled)
+    vecVp = mat2vec(pVel)
+    pVp = cartesian2Polar.(vecVp)
+    θVp = [pVp[i][2] for i in 1:length(pVp)]
+    rVp = [pVp[i][1]/va0 for i in 1:length(pVp)]
+    # θvp = spanAngle.(er_rtn,vecVp)
+    vecVαp_event = mat2vec(vαp_rtn2α)
+    pVαp = cartesian2Polar.(vecVαp_event)
+    θVαp_event = [pVαp[i][2] for i in 1:length(pVαp)]
+    rVαp = [pVαp[i][1]/va0 for i in 1:length(pVαp)]
+
+    # θvαp_event =  θvαp[αPoints]
+
+
+    δθ = 0.2π
+    θs = -π+δθ/2:δθ:π-δθ/2
+    hb = fitHist(θb;θedges=-π:δθ:π)
+    hVαp_event = fitHist(θVαp_event;θedges=-π:δθ:π)
+    # p1 = plot(θs, hb.weights/sum(hb.weights);
+    # proj = :polar, m = 2,
+    # label="b",
+    # title="Vαp0/VA0=$(round(drift2va,digits=3)), "*
+    # "δVαp/VA=$(round(δαp2va,digits=3))",
+    # markerstrokewidth=0,
+    # )
+    # plot!(p1,θs, hVαp_event.weights/sum(hVαp_event.weights);
+    # proj = :polar, m = 2,
+    # label="Vαp",
+    # markerstrokewidth=0,
+    # )
+    hVα = fitHist(θVα;θedges=-π:δθ:π)
+    hVp = fitHist(θVp;θedges=-π:δθ:π)
+    p2 = plot(θs, hVα.weights/sum(hVα.weights);
+    proj = :polar, m = 2,
+    # label="δVα",
+    label="Vα",
+    # title="δVα/VA0=$(round(δα2va,digits=3))",
+    markerstrokewidth=0,
+    )
+    plot!(p2,θs, hVp.weights/sum(hVp.weights);
+    proj = :polar, m = 2,
+    label="Vp",
+    # label="δVp",
+    markerstrokewidth=0,
+    )
+    # p3 = scatter(
+    # θVa,rVa;
+    # proj = :polar, m = 2,
+    # label="VA",
+    # title="VA0",
+    # markerstrokewidth=0,
+    # )
+    # scatter!(p3,θVαp_event,rVαp;
+    # proj = :polar, m = 2,
+    # label="Vαp",
+    # markerstrokewidth=0,
+    # )
+    p4 = scatter(
+    θVα,rVα;
+    proj = :polar, m = 2,
+    # label="δVα",
+    label="Vα",
+    # title="VA0",
+    markerstrokewidth=0,
+    )
+    scatter!(p4,θVp,rVp;
+    proj = :polar, m = 2,
+    # label="δVp",
+    label="Vp",
+    markerstrokewidth=0,
+    )
+    plot(p2,p4;
+    layout=@layout grid(1,2))
+    savefig("figure\\deltaVapAndVap0\\"*dirName*"\\case"*string(sbidx)*".png")
+    nothing
+end
+
+# δVap/Vap0<0.4
+
+
+dirName = "vap0\\VaVp"
+for sbidx in vap0Cases
+    caseStudy(sbidx,dirName,sbEpochList,pVars,αVars,modifiedVars,magVars)
+end
+dirName = "deltaVap\\VaVp"
+for sbidx in deltaVapCases
+    caseStudy(sbidx,dirName,sbEpochList,pVars,αVars,modifiedVars,magVars)
+end
+dirName = "mid\\VaVp"
+for sbidx in midVapCases
+    caseStudy(sbidx,dirName,sbEpochList,pVars,αVars,modifiedVars,magVars)
+end
+
+
+
 
 # 事件
 # 磁场方向、速度方向，看场向漂移or非场向漂移

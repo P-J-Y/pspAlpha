@@ -94,6 +94,13 @@ va_rtn = [modifiedVars["va_rtn_alphaEpoch"][i,:] for i in 1:size(modifiedVars["v
 vαp_rtn = vecVαp.(vα,vp)
 vαp = Vαp.(vα,vp)
 vαp2va = vαp./va
+Tp = vec(modifiedVars["Tp_alphaEpoch"])
+Tα = vec(αVars["alpha_temp"])
+TpBad = Tp.<0.01
+TαBad = Tα.<0.01
+Tp[TpBad] .= NaN
+Tα[TαBad] .= NaN
+Tα2Tp = Tα./Tp
 
 # rs,absVαps = vαpVsR(αVars,vp,abs.(vαp);binNum=5)
 rs,Vαps = vαpVsR(αVars,absVp,vαp;binNum=5,vpBinEdges=[0,300,500,1000])
@@ -101,6 +108,8 @@ rs,Vαps = vαpVsR(αVars,absVp,vαp;binNum=5,vpBinEdges=[0,300,500,1000])
 ~,vαp2vas = vαpVsR(αVars,absVp,vαp2va;binNum=5,vpBinEdges=[0,300,500,1000])
 
 saVαpVa = spanAngle.(vαp_rtn,va_rtn)
+
+
 
 # histogram(
 # saVαpVa*180/π,
@@ -130,7 +139,30 @@ saVαpVa = spanAngle.(vαp_rtn,va_rtn)
 # write(file, "alpha_sun_dist", αVars["alpha_sun_dist"]/AU)
 # write(file, "saVapVa", saVαpVa*180/π)
 # close(file)
+file = matopen("data\\output\\TvsVap.mat", "w")
+write(file, "vap2va", vαp2va)
+write(file, "Ta2Tp", Tα2Tp)
+write(file, "Tp", Tp)
+write(file,"alpha_sun_dist",vec(αVars["alpha_sun_dist"]/AU))
+write(file,"VA",va)
+close(file)
 
+colorz = 10 .^ (1:0.1:4)
+histogram2d(
+vαp2va,
+Tα2Tp,
+xlabel="Vαp/VA",
+ylabel="Tα/Tp",
+xlims=(-2,2),
+ylims=(0,15),
+legend=false,
+colorbar=true,
+# color=:rainbow,
+# color=cgrad(:jet,colorz,scale=:log10),
+# zscale=:log10,
+# colorrange=(2000,20000),
+)
+savefig("figure//TvsVap.png")
 
 # figRlims = (0.05,0.35)
 # # scatter(
